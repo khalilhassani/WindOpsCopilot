@@ -1,0 +1,60 @@
+name: WindOps Copilot CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements.txt
+
+    - name: Run Pytest Suite
+      run: |
+        # Set PYTHONPATH so that backend is importable
+        export PYTHONPATH=$PYTHONPATH:.
+        pytest backend/tests -v
+
+  docker-validation:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Validate Backend Docker Build
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: false
+        tags: windops-backend:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Validate Frontend Docker Build
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: false
+        tags: windops-frontend:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

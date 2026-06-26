@@ -1,0 +1,13 @@
+{
+    "id": "WTG-001_corr-fc5",
+    "subject": "[WindOps Alert] Turbine WTG-001 - Evaluation Report",
+    "sender": "windops@gmail.com",
+    "recipient": "khlilhssani@gmail.com",
+    "body": "Hello Team,\n\nThe multi-agent system has completed its evaluation of Turbine WTG-001.\n\n--- EVALUATION SUMMARY ---\nTurbine ID: WTG-001\nCorrelation ID: corr-fc5e01df520a\nHealth Score: 60.0%\nActive Alerts: 1\nDiagnosed Root Cause: Extreme Wind / Storm Ingress\n\nPlease find the detailed PDF operational report attached to this email.\n\nBest regards,\nWindOps Copilot Orchestrator\n",
+    "timestamp": "2026-06-26T12:50:34.408704",
+    "pdf_filename": "report_WTG-001_corr-fc5.pdf",
+    "pdf_path": "C:\\Users\\LENOVO\\Desktop\\Mini\u2011Projet S5  Agent en Production Alpha\\backend\\data\\reports\\report_WTG-001_corr-fc5.pdf",
+    "health_score": 60.0,
+    "alerts_count": 1,
+    "diagnosed_cause": "Extreme Wind / Storm Ingress"
+}

@@ -1,0 +1,13 @@
+{
+    "id": "WTG-002_corr-948",
+    "subject": "[WindOps Alert] Turbine WTG-002 - Evaluation Report",
+    "sender": "windops@gmail.com",
+    "recipient": "khlilhssani@gmail.com",
+    "body": "Hello Team,\n\nThe multi-agent system has completed its evaluation of Turbine WTG-002.\n\n--- EVALUATION SUMMARY ---\nTurbine ID: WTG-002\nCorrelation ID: corr-948dfb1794c6\nHealth Score: 100.0%\nActive Alerts: 0\nDiagnosed Root Cause: Normal Operation\n\nPlease find the detailed PDF operational report attached to this email.\n\nBest regards,\nWindOps Copilot Orchestrator\n",
+    "timestamp": "2026-06-26T13:01:01.578842",
+    "pdf_filename": "report_WTG-002_corr-948.pdf",
+    "pdf_path": "C:\\Users\\LENOVO\\Desktop\\Mini\u2011Projet S5  Agent en Production Alpha\\backend\\data\\reports\\report_WTG-002_corr-948.pdf",
+    "health_score": 100.0,
+    "alerts_count": 0,
+    "diagnosed_cause": "Normal Operation"
+}
