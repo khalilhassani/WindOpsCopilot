@@ -26,10 +26,17 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS configurations for React Frontend integration
+# CORS — Origines autorisées explicitement (plus sécurisé que "*")
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",          # Vite dev local
+    "http://localhost:3000",          # Docker frontend local
+    "https://windops-copilot.vercel.app",  # Production Vercel (à mettre à jour avec votre URL)
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In development, allow Vite UI
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

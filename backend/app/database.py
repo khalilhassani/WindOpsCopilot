@@ -98,10 +98,134 @@ class MockDatabase:
             self.collections[name] = MockCollection(name)
         return self.collections[name]
 
+# Class wrapper to allow dynamic boolean evaluations for imported references
+class MockDbFlag:
+    def __init__(self, val=False):
+        self.val = val
+    def __bool__(self):
+        return self.val
+
+# Robust wrappers to catch database exceptions during runtime and fall back on-the-fly
+class RobustCursorWrapper:
+    def __init__(self, db_wrapper, coll_name, real_cursor, find_args, find_kwargs):
+        self._db_wrapper = db_wrapper
+        self._coll_name = coll_name
+        self._real_cursor = real_cursor
+        self._find_args = find_args
+        self._find_kwargs = find_kwargs
+        self._sort_args = None
+        self._limit_n = None
+
+    def sort(self, *args, **kwargs):
+        self._sort_args = (args, kwargs)
+        if not self._db_wrapper._use_mock:
+            try:
+                self._real_cursor = self._real_cursor.sort(*args, **kwargs)
+            except Exception:
+                pass
+        return self
+
+    def limit(self, n):
+        self._limit_n = n
+        if not self._db_wrapper._use_mock:
+            try:
+                self._real_cursor = self._real_cursor.limit(n)
+            except Exception:
+                pass
+        return self
+
+    async def to_list(self, length=None):
+        try:
+            if self._db_wrapper._use_mock:
+                raise Exception("Forced mock database fallback active.")
+            return await self._real_cursor.to_list(length)
+        except Exception as e:
+            if not self._db_wrapper._use_mock:
+                logger.warning(f"Cursor query error on collection '{self._coll_name}': {e}. Switching to MockDatabase.")
+                self._db_wrapper._use_mock = True
+                global is_mock_db
+                is_mock_db.val = True
+            mock_coll = self._db_wrapper._mock_db[self._coll_name]
+            mock_cursor = mock_coll.find(*self._find_args, **self._find_kwargs)
+            if self._sort_args:
+                mock_cursor.sort(*self._sort_args[0], **self._sort_args[1])
+            if self._limit_n is not None:
+                mock_cursor.limit(self._limit_n)
+            return await mock_cursor.to_list(length)
+
+class RobustCollectionWrapper:
+    def __init__(self, db_wrapper, name):
+        self._db_wrapper = db_wrapper
+        self._name = name
+
+    @property
+    def _current_coll(self):
+        if self._db_wrapper._use_mock:
+            return self._db_wrapper._mock_db[self._name]
+        return self._db_wrapper._real_db[self._name]
+
+    async def insert_one(self, *args, **kwargs):
+        try:
+            if self._db_wrapper._use_mock:
+                return await self._current_coll.insert_one(*args, **kwargs)
+            return await self._current_coll.insert_one(*args, **kwargs)
+        except Exception as e:
+            logger.warning(f"Write failure on collection '{self._name}': {e}. Switching to MockDatabase.")
+            self._db_wrapper._use_mock = True
+            global is_mock_db
+            is_mock_db.val = True
+            return await self._current_coll.insert_one(*args, **kwargs)
+
+    async def update_one(self, *args, **kwargs):
+        try:
+            if self._db_wrapper._use_mock:
+                return await self._current_coll.update_one(*args, **kwargs)
+            return await self._current_coll.update_one(*args, **kwargs)
+        except Exception as e:
+            logger.warning(f"Update failure on collection '{self._name}': {e}. Switching to MockDatabase.")
+            self._db_wrapper._use_mock = True
+            global is_mock_db
+            is_mock_db.val = True
+            return await self._current_coll.update_one(*args, **kwargs)
+
+    async def find_one(self, *args, **kwargs):
+        try:
+            if self._db_wrapper._use_mock:
+                return await self._current_coll.find_one(*args, **kwargs)
+            return await self._current_coll.find_one(*args, **kwargs)
+        except Exception as e:
+            logger.warning(f"Query failure on collection '{self._name}': {e}. Switching to MockDatabase.")
+            self._db_wrapper._use_mock = True
+            global is_mock_db
+            is_mock_db.val = True
+            return await self._current_coll.find_one(*args, **kwargs)
+
+    def find(self, *args, **kwargs):
+        try:
+            if self._db_wrapper._use_mock:
+                return self._current_coll.find(*args, **kwargs)
+            real_cursor = self._current_coll.find(*args, **kwargs)
+            return RobustCursorWrapper(self._db_wrapper, self._name, real_cursor, args, kwargs)
+        except Exception as e:
+            logger.warning(f"Find failure on collection '{self._name}': {e}. Switching to MockDatabase.")
+            self._db_wrapper._use_mock = True
+            global is_mock_db
+            is_mock_db.val = True
+            return self._current_coll.find(*args, **kwargs)
+
+class RobustDatabaseWrapper:
+    def __init__(self, real_db, mock_db):
+        self._real_db = real_db
+        self._mock_db = mock_db
+        self._use_mock = isinstance(real_db, MockDatabase)
+
+    def __getitem__(self, name):
+        return RobustCollectionWrapper(self, name)
+
 # Global DB client variable
 db_client = None
 db = None
-is_mock_db = False
+is_mock_db = MockDbFlag(False)
 
 def get_database():
     global db_client, db, is_mock_db
@@ -109,6 +233,7 @@ def get_database():
     if db is not None:
         return db
         
+    mock_db = MockDatabase()
     # Attempt connecting to real MongoDB
     try:
         logger.info(f"Connecting to MongoDB at {settings.MONGODB_URL}...")
@@ -121,12 +246,13 @@ def get_database():
         # Connection verified, configure async client
         client = AsyncIOMotorClient(settings.MONGODB_URL, serverSelectionTimeoutMS=2000)
         db_client = client
-        db = client[settings.DATABASE_NAME]
-        is_mock_db = False
+        real_db = client[settings.DATABASE_NAME]
+        is_mock_db.val = False
         logger.info("Successfully connected to live MongoDB database.")
+        db = RobustDatabaseWrapper(real_db, mock_db)
     except Exception as e:
         logger.warning(f"Could not connect to live MongoDB: {e}. Falling back to in-memory MockDatabase.")
-        db = MockDatabase()
-        is_mock_db = True
+        is_mock_db.val = True
+        db = RobustDatabaseWrapper(mock_db, mock_db)
         
     return db
